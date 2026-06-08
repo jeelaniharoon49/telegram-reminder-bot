@@ -1,0 +1,110 @@
+function checkReminders() {
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
+  const data = sheet.getDataRange().getValues();
+
+  const today = new Date();
+
+  const botToken = "xxxxxxxxxxxxxxxxxx";
+  const chatId = "1897402768";
+
+  for (let i = 1; i < data.length; i++) {
+
+    const row = data[i];
+
+    const type = row[1];
+    const party = row[2];
+    const amount = row[3];
+    const dueDate = new Date(row[4]);
+    const reminderTime = row[5];
+    const status = row[6];
+    const notes = row[7];
+
+    const frequency = row[9];
+    const lastReminderSent = row[10];
+    let reminderCount = row[11];
+
+    // Stop if completed
+    if (status !== "Pending") {
+      continue;
+    }
+
+    let shouldSend = false;
+
+    const now = new Date();
+
+    // FIRST reminder
+    if (!lastReminderSent) {
+      shouldSend = true;
+    }
+    else {
+
+      const lastSent = new Date(lastReminderSent);
+
+      const diffMs = now - lastSent;
+
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      if (frequency === "Hourly" && diffHours >= 1) {
+        shouldSend = true;
+      }
+
+      else if (frequency === "Every 2 Hours" && diffHours >= 2) {
+        shouldSend = true;
+      }
+
+      else if (frequency === "Daily" && diffHours >= 24) {
+        shouldSend = true;
+      }
+
+      else if (frequency === "Twice Daily" && diffHours >= 12) {
+        shouldSend = true;
+      }
+
+      else if (frequency === "Weekly" && diffHours >= 168) {
+        shouldSend = true;
+      }
+    }
+
+    if (shouldSend) {
+
+      const message = `⚠️ ${type.toUpperCase()} REMINDER
+
+Party: ${party}
+Amount: ₹${amount}
+
+Due Date: ${dueDate.toDateString()}
+
+Notes: ${notes}
+
+Reminder Count: ${reminderCount || 0}`;
+
+      const telegramUrl =
+`https://api.telegram.org/bot${botToken}/sendMessage`;
+
+      const payload = {
+        chat_id: chatId,
+        text: message
+      };
+
+      const options = {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(payload)
+      };
+
+      UrlFetchApp.fetch(telegramUrl, options);
+
+      // Update last reminder time
+      sheet.getRange(i + 1, 11).setValue(now);
+
+      // Update reminder count
+      reminderCount = reminderCount || 0;
+
+      sheet.getRange(i + 1, 12).setValue(reminderCount + 1);
+
+    }
+
+  }
+
+}
